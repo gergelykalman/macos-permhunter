@@ -97,7 +97,6 @@ def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip,
                 print("ERROR: stat received an exception: {}".format(exc))
                 continue
 
-            # TODO: handle directories here, for dirlist execute flag should be checked, not read!
             if os.path.isdir(fname):
                 ftype = "dir"
                 ucheck, gcheck, ocheck = stat.S_IXUSR, stat.S_IXGRP, stat.S_IXOTH
@@ -119,7 +118,8 @@ def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip,
             st = os.stat(i)
         except FileNotFoundError:
             # dangling link?
-            # print("NOT FOUND: {}".format(i))
+            if DEBUG:
+                print("NOT FOUND: {}".format(i))
             continue
         except Exception as exc:
             if not omit_errors:
