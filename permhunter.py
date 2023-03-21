@@ -7,8 +7,10 @@ import argparse
 
 DEBUG = False
 
+ALLOWED_FILETYPES = "fdlo"
 
-def myscandir(root, depth=0, omit_links=False, skiplist=None):
+
+def myscandir(root, depth=0, skiplist=None, match_filetypes=ALLOWED_FILETYPES):
     # NOTE: We do this because os.walk silently swallows PermissionError, but we want to see them.
     if skiplist is not None:
         skip = False
@@ -18,6 +20,9 @@ def myscandir(root, depth=0, omit_links=False, skiplist=None):
                 break
         if skip:
             return None
+
+    if "d" in match_filetypes:
+        yield root
 
     try:
         dirlist = os.listdir(root)
@@ -31,17 +36,18 @@ def myscandir(root, depth=0, omit_links=False, skiplist=None):
         # NOTE: we check for islink first, as islink() and isdir() can both be true, and we do NOT want
         #       to follow links (infinite recursion)
         if os.path.islink(fpath):
-            if omit_links:
+            if "l" not in match_filetypes:
                 continue
-            pass
         elif os.path.isdir(fpath):
-            for j in myscandir(fpath, depth=depth+1, omit_links=omit_links, skiplist=skiplist):
+            for j in myscandir(fpath, depth=depth+1, skiplist=skiplist, match_filetypes=match_filetypes):
                 yield j
             continue
         elif os.path.isfile(fpath):
-            pass
+            if "f" not in match_filetypes:
+                continue
         else:
-            pass
+            if "o" not in match_filetypes:
+                continue
         yield fpath
 
 
@@ -67,7 +73,14 @@ def permcheck(st, uids, gids, uidcheck, gidcheck, othcheck):
     return ret
 
 
-def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip, omit_errors, omit_links, skiplist):
+def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip, omit_errors, skiplist,
+         match_filetypes):
+
+    # validate filetypes
+    for i in match_filetypes:
+        if i not in ALLOWED_FILETYPES:
+            raise ValueError("filetype \"{}\" not one of: \"{}\"".format(i, ALLOWED_FILETYPES))
+
     # set defaults if not specified
     if uids is None:
         uids = [os.getuid()]
@@ -86,7 +99,7 @@ def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip,
     if omit_oth:
         oth_check = None
 
-    dirgen = myscandir(startdir, omit_links=omit_links, skiplist=skiplist)
+    dirgen = myscandir(startdir, skiplist=skiplist, match_filetypes=match_filetypes)
     for i in dirgen:
         # check for error
         if type(i) is PermissionError:
@@ -101,7 +114,7 @@ def main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_sip,
                 ftype = "dir"
                 ucheck, gcheck, ocheck = stat.S_IXUSR, stat.S_IXGRP, stat.S_IXOTH
             else:
-                ftype = "file"
+                ftype = "notdir"
                 ucheck, gcheck, ocheck = stat.S_IRUSR, stat.S_IRGRP, stat.S_IROTH
             ret = permcheck(st, uids, gids, ucheck, gcheck, ocheck)
             if len(ret) > 0:
@@ -158,8 +171,6 @@ if __name__ == '__main__':
     parser.add_argument("--omit-sip", default=False, action="store_true", help="Do not print SIP-related misbehaviour")
     parser.add_argument("--omit-errors", default=False, action="store_true",
                         help="Do not print PermissionError error messages (still prints unexpected errors!)")
-    parser.add_argument("--omit-links", default=False, action="store_true",
-                        help="Omit symlinks from permission checks (reduce noise)")
     parser.add_argument("--skiplist", type=str, default=None, nargs="*",
                         help="Skip these directories")
     parser.add_argument("--uids", type=str, default=None, nargs="*",
@@ -169,6 +180,8 @@ if __name__ == '__main__':
     parser.add_argument("--omit-uid", default=False, action="store_true", help="Don't match uid")
     parser.add_argument("--omit-gid", default=False, action="store_true", help="Don't match gid")
     parser.add_argument("--omit-oth", default=False, action="store_true", help="Don't match oth(er)")
+    parser.add_argument("--match-filetypes", type=str, default=ALLOWED_FILETYPES,
+                        help="Match file type: f(ile), d(ir), l(ink), o(ther))")
 
     args = parser.parse_args()
 
@@ -176,11 +189,11 @@ if __name__ == '__main__':
     only_sip = args.only_sip
     omit_sip = args.omit_sip
     omit_errors = args.omit_errors
-    omit_links = args.omit_links
     skiplist = args.skiplist
     uids = args.uids
     gids = args.gids
     omit_uid = args.omit_uid
     omit_gid = args.omit_gid
     omit_oth = args.omit_oth
-    main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_errors, omit_sip, omit_links, skiplist)
+    match_filetypes = args.match_filetypes
+    main(startdir, uids, gids, omit_uid, omit_gid, omit_oth, only_sip, omit_errors, omit_sip, skiplist, match_filetypes)

@@ -16,3 +16,6 @@ Look for writable directories in ~/Library/, but omit errors and skip certain
 dirs
 > ~/tools/permhunter/permhunter.py --startdir /Users/USER/Library/ --omit-errors --skiplist /Users/USER/Library/Developer/Xcode /Users/USER/Library/Developer/CoreSimulator
 
+Look for ONLY writable directories
+> ~/tools/permhunter/permhunter.py --startdir /Users/USER/Library/Caches/ --match-filetypes d --skiplist /Users/USER/Library/Developer/Xcode /Users/USER/Library/Developer/CoreSimulator
+
